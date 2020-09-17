@@ -65,9 +65,9 @@ private:
 	/**
 	* Moves down the tree to the child on n
 	* Creates a new node if necessary
-	* @param childIndex    which child to move to. If childIndex >= children.size(), creates more children
+	* @param childIndex    which child to move to. If childIndex >= children.size(), creates more children. If index == -1, moves down the next null child
 	*/
-	void moveDown(node* n, int childIndex);
+	void moveDown(node* n, int childIndex = -1);
 
 	//requires pivot is left child of parent
 	void rotateRight(node* pivot);

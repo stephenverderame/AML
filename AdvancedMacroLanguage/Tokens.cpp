@@ -14,6 +14,8 @@ std::string Token::literalValue() const
         return std::to_string(getInt());
     case Tokens::lit_long:
         return std::to_string(getLng());
+    case Tokens::lit_short:
+        return std::to_string(getShort());
     default:
         return "";
     }

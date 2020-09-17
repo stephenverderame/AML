@@ -25,7 +25,7 @@ int main(int argc, char ** args) {
 	char lastC = 0;
 	char c;
 	int lineCount = 0;
-	Evaluator global;
+	Evaluator global(strOut);
 	while ((c = fgetc(strIn)) != EOF) { //the interpreter loop
 		switch (c) {
 		case symbol:
@@ -49,15 +49,14 @@ int main(int argc, char ** args) {
 				else {
 					try {
 						Token res = pt.evaluate(global);
-						if (res.getType() != Tokens::sx_void)
-							fputs(res.literalValue().c_str(), strOut);
-						printf("%s\n", res.literalValue().c_str());
+/*						if (res.getType() != Tokens::sx_void)
+							fputs(res.literalValue().c_str(), strOut);*/
 					}
 					catch (evaluator_exception e) {
-						fprintf(stderr, "\033[1;31mEvauluator exception: '%s' at line: %d\n\033[1;0m", e.what(), lineCount);
+						fprintf(stderr, "\033[1;31mEvaluator exception: '%s' at line: %d\n\033[1;0m", e.what(), lineCount);
 					}
-					while ((c = fgetc(strIn)) == '\n' || c == '\r' || c == '\t');
-					fputc(c, strOut);
+//					while ((c = fgetc(strIn)) == '\n' || c == '\r' || c == '\t');
+//					fputc(c, strOut);
 #ifdef _DEBUG
 					printf("\n\n\n");
 					pt.inorderTraversal([&tokenizer](const Token& t) {

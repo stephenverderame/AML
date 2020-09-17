@@ -3,10 +3,12 @@
 //Stores variables
 #include "Tokens.h"
 #include <vector>
+#include "Stream.h"
 class Evaluator
 {
 private:
 	mutable std::string error;
+	FILE* str;
 public:
 	/**
 	* Evaluates an expression, which is required to be in postfix notation
@@ -15,6 +17,9 @@ public:
 	Token evaluate(std::vector<Token>& tokens);
 
 	std::string getError() const { return error; }
+
+	/**@param outputStream   the stream to the output file. Used for functions such as print*/
+	Evaluator(Stream& outputStream) { str = outputStream; }
 
 private:
 	/**
@@ -50,5 +55,21 @@ private:
 	MATH_OPERATOR(sub);
 	MATH_OPERATOR(div);
 	MATH_OPERATOR(mul);
+	MATH_OPERATOR(power);
+	MATH_OPERATOR(test);
+	MATH_OPERATOR(bool_and);
+	MATH_OPERATOR(bool_or);
+	MATH_OPERATOR(bit_and);
+	MATH_OPERATOR(bit_or);
+	MATH_OPERATOR(bit_xor);
+	MATH_OPERATOR(mod);
+	MATH_OPERATOR(less);
+	MATH_OPERATOR(greater);
+	MATH_OPERATOR(less_eq);
+	MATH_OPERATOR(greater_eq);
+	MATH_OPERATOR(shift_left);
+	MATH_OPERATOR(shift_right);
+	MATH_OPERATOR(not_test);
+	MATH_OPERATOR(bool_xor);
 };
 

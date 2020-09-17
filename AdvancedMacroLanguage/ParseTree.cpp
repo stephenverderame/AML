@@ -7,7 +7,7 @@ struct ParseTree::node
 	//Invariant: children.size() >= 2
 	node* parent;
 	Token data;
-	bool isSubtree; //denotes that the tree is a subtree and precedence should be ignores
+	bool isSubtree; //denotes that the tree is the root of a subtree and precedence should be ignores
 	std::vector<node*> children;
 	node() : parent(nullptr), data(Tokens::invalid), isSubtree(false) {
 		children.resize(2, nullptr);
@@ -35,16 +35,37 @@ void ParseTree::addToken(const Token& t)
 	switch (t.getCategory()) {
 	case TokenCategory::literals:
 	{
-		node* oldN = next;
 		next->data = t;
 		moveUp(next);
 		next = balanceNode(next);
 		break;
 	}
-	case TokenCategory::operators:
-		if (next->data.getCategory() == TokenCategory::operators) { //next is already defined
-			//appends the new node as the parent of the current subtree root
+	case TokenCategory::syntax:
+		switch (t.getType()) {
+		case Tokens::start_expr:
+		case Tokens::start_block:
+			next->isSubtree = true;
+			subtrees.push(next); //begins new subtree with next as the root
+			break;
+		case Tokens::end_expr:
+		case Tokens::end_block:
+			subtrees.pop();
+			moveUp(next);
+			break;
+		case Tokens::sx_comma: //list, creates new child
+			moveDown(next);
+			break;
+		}
+		break;
+	default: //expected: operators and functions
+		if (next->data.getType() != Tokens::invalid) { //next is already defined
 			auto newNode = new node(t);
+			if (!subtrees.empty() && next == subtrees.top()) {
+				newNode->isSubtree = true;
+				next->isSubtree = false;
+				subtrees.pop();
+				subtrees.push(newNode);
+			}
 			newNode->children[0] = next;
 			if (next->parent == nullptr) {
 				root = newNode;
@@ -59,28 +80,12 @@ void ParseTree::addToken(const Token& t)
 			}
 			next->parent = newNode;
 			next = newNode;
-			moveDown(newNode, 1);
+			moveDown(newNode);
 		}
 		else {
 			next->data = t;
-			moveDown(next, 1);
+			moveDown(next);
 		}
-		break;
-	case TokenCategory::syntax:
-		switch (t.getType()) {
-		case Tokens::start_expr:
-		case Tokens::start_block:
-			next->isSubtree = true;
-			subtrees.push(next); //begins new subtree with next as the root
-			break;
-		case Tokens::end_expr:
-		case Tokens::end_block:
-			subtrees.pop();
-			moveUp(next);
-			break;
-		}
-		break;
-	default:
 		break;
 	}
 }
@@ -98,8 +103,12 @@ void ParseTree::moveUp(node* n)
 {
 	if (n->parent == nullptr) { //n is the root
 		auto newRoot = new node();
-		newRoot->isSubtree = n->isSubtree;
-		n->isSubtree = false; //always keep the isSubtree flag at the root of the subtree
+		if (!subtrees.empty() && subtrees.top() == n) {
+			newRoot->isSubtree = n->isSubtree;
+			n->isSubtree = false; //always keep the isSubtree flag at the root of the subtree
+			subtrees.pop();
+			subtrees.push(newRoot);
+		}
 		newRoot->children[0] = root;
 		root->parent = newRoot;
 		root = newRoot;
@@ -127,6 +136,10 @@ void ParseTree::moveUp(node* n)
 
 void ParseTree::moveDown(node* n, int childIndex)
 {
+	if (childIndex == -1) {
+		for (childIndex = 0; childIndex < n->children.size() && n->children[childIndex] != nullptr
+			&& n->children[childIndex]->data.getType() != Tokens::invalid; ++childIndex);
+	}
 	if (n->children.size() <= childIndex) n->children.resize(childIndex + 1);
 	if (n->children[childIndex] == nullptr) {
 		auto newNode = new node();
@@ -198,7 +211,7 @@ Token ParseTree::evaluate(node* n, Evaluator& e)
 	if (n != nullptr) {
 		std::vector<Token> expression;
 		for (node* nc : n->children)
-			if (nc != nullptr) expression.push_back(evaluate(nc, e));
+			if (nc != nullptr && nc->data.getType() != Tokens::invalid) expression.push_back(evaluate(nc, e));
 		expression.push_back(n->data);
 		Token&& ev = e.evaluate(expression);
 		if (ev.getType() == Tokens::invalid) throw evaluator_exception(e.getError().c_str());
@@ -208,14 +221,14 @@ Token ParseTree::evaluate(node* n, Evaluator& e)
 }
 ParseTree::node* ParseTree::balanceNode(node* next)
 {
-	if (next != nullptr && next->children[0] != nullptr && !next->children[0]->isSubtree && next->data.getCategory() == TokenCategory::operators &&
+	if (next != nullptr && next->children[0] != nullptr && !next->children[0]->isSubtree && next->data.getCategory() != TokenCategory::literals && next->children[0]->data.getCategory() != TokenCategory::literals &&
 		precedence(next->data.getType()) > precedence(next->children[0]->data.getType())) {
 
 		node* newNext = next->children[0]; //child and parent is switching. Must switch the next ptr otherwise next will point to the child and the move up operation never happened
 		rotateRight(next->children[0]);
 		return newNext;
 	}
-	else if (next != nullptr && next->children[1] != nullptr && !next->children[1]->isSubtree && next->data.getCategory() == TokenCategory::operators &&
+	else if (next != nullptr && next->children[1] != nullptr && !next->children[1]->isSubtree && next->data.getCategory() != TokenCategory::literals && next->children[1]->data.getCategory() != TokenCategory::literals &&
 		precedence(next->data.getType()) > precedence(next->children[1]->data.getType())) {
 
 		node* newNext = next->children[1]; //child and parent is switching. Must switch the next ptr otherwise next will point to the child and the move up operation never happened

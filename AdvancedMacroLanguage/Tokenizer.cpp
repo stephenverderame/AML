@@ -2,8 +2,11 @@
 #include "CompileTimeHash.h"
 #include <sstream>
 constexpr Tuple<const char*, Tokens> tokenList[] = {
-    {"print", Tokens::func_print}, {"exec", Tokens::func_exec}, {"+", Tokens::op_plus}, {"-", Tokens::op_minus}, {"/", Tokens::op_div},
-    {"**", Tokens::op_exp}, {"*", Tokens::op_mul}
+    {"print", Tokens::func_print}, {"random", Tokens::func_rand}, {"+", Tokens::op_plus}, {"-", Tokens::op_minus}, {"/", Tokens::op_div},
+    {"**", Tokens::op_exp}, {"*", Tokens::op_mul}, {"<", Tokens::op_le}, {"<=", Tokens::op_lee}, {">", Tokens::op_gr}, {">=", Tokens::op_gre},
+    {"==", Tokens::op_test}, {"&&", Tokens::op_and}, {"||", Tokens::op_or}, {"|", Tokens::op_bit_or}, {"&", Tokens::op_bit_and}, {"%", Tokens::op_mod},
+    {"^", Tokens::op_xor}, {"!=", Tokens::op_ne}, {"<<", Tokens::op_sh_left}, {">>", Tokens::op_sh_right}, {"^^", Tokens::op_bool_xor},
+    {"isLittleEndian", Tokens::func_lil_endian}
 };
 static constexpr CompileTimeHash<const char*, Tokens> tokenHash(tokenList, sizeof(tokenList) / sizeof(Tuple<const char *, Tokens>), Tokens::invalid);
 
@@ -20,9 +23,10 @@ Token Tokenizer::getToken()
         bool floating = false;
         if (c == '-') {
             char c2 = fgetc(input);
-            if (isdigit(c) || (c == '.' && (floating = true))) {
+            if (isdigit(c2) || (c2 == '.' && (floating = true))) {
                 buf[i++] = c;
                 buf[i++] = c2;
+                c = fgetc(input);
             }
             else {
                 ungetc(c2, input);
@@ -140,6 +144,7 @@ Token Tokenizer::getToken()
     else if (c == ';') t.setType(Tokens::end_stment);
     else if (c == '(') t.setType(Tokens::start_expr);
     else if (c == ')') t.setType(Tokens::end_expr);
+    else if (c == ',') t.setType(Tokens::sx_comma);
     return t;
 }
 bool Tokenizer::isOperator(char c)

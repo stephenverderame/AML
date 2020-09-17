@@ -11,6 +11,8 @@ enum class Tokens : uint16_t {
 	//standard functions
 	func_print,
 	func_exec,
+	func_rand,
+	func_lil_endian,
 
 	//literals
 	lit_section_start = (uint16_t)TokenCategory::literals << 12, //sections to quickly determine what type of token something is
@@ -29,6 +31,21 @@ enum class Tokens : uint16_t {
 	op_minus,
 	op_div,
 	op_exp,
+	op_test,
+	op_gr,
+	op_gre,
+	op_le,
+	op_lee,
+	op_or,
+	op_and,
+	op_bit_or,
+	op_bit_and,
+	op_xor,
+	op_mod,
+	op_sh_left,
+	op_sh_right,
+	op_ne,
+	op_bool_xor,
 
 	//control flow
 	ct_section_start = (uint16_t)TokenCategory::control_flow << 12,
@@ -50,21 +67,30 @@ enum class Tokens : uint16_t {
 	end_expr,
 	start_expr,
 	sx_void,
+	sx_comma,
 	invalid = ~0
 };
 constexpr inline TokenCategory categoryOf(Tokens t) {
 	return (TokenCategory)((uint16_t)t >> 12);
 }
+/**/
 constexpr inline int precedence(Tokens t) {
 	switch (t) {
 	case Tokens::op_exp:
-		return 3;
+		return 10;
 	case Tokens::op_div:
 	case Tokens::op_mul:
-		return 2;
+	case Tokens::op_mod:
+		return 9;
 	case Tokens::op_minus:
 	case Tokens::op_plus:
-		return 1;
+		return 8;
+	case Tokens::op_and:
+	case Tokens::op_bit_and:
+	case Tokens::op_bit_or:
+	case Tokens::op_xor:
+	default: //functions
+		return 0;
 	}
 }
 using TokenData = std::variant<std::string, double, float, long long, long, short>;
@@ -80,12 +106,12 @@ public:
 	inline Tokens getType() const { return type; }
 	inline TokenCategory getCategory() const { return categoryOf(type); }
 	inline void setType(Tokens t) { type = t; }
-	inline const std::string& getStr() const { return std::get<0>(data); }
-	inline const double& getDbl() const { return std::get<1>(data); }
-	inline const float getFlt() const { return std::get<2>(data); }
-	inline const long long& getLng() const { return std::get<3>(data); }
-	inline long getInt() const { return std::get<4>(data); }
-	inline short getShort() const { return std::get<5>(data); }
+	inline const std::string& getStr() const { return std::get<std::string>(data); }
+	inline const double& getDbl() const { return std::get<double>(data); }
+	inline const float getFlt() const { return std::get<float>(data); }
+	inline const long long& getLng() const { return std::get<long long>(data); }
+	inline long getInt() const { return std::get<long>(data); }
+	inline short getShort() const { return std::get<short>(data); }
 	inline void setVar(const TokenData&& d) { data = d; }
 	inline TokenData getData() { return data; }
 	inline void setData(const double& t)
