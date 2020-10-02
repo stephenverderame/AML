@@ -20,3 +20,8 @@ std::string Token::literalValue() const
         return "";
     }
 }
+
+bool Token::operator==(const Token& other) const
+{
+    return type == other.type && data == other.data;
+}

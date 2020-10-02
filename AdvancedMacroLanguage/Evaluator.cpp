@@ -1,140 +1,60 @@
 #include "Evaluator.h"
 #include <time.h>
+#include <unordered_map>
+#include <stack>
+#include "Stream.h"
+#include "CodePage.h"
+//Linked stack of scopes
+//Invariant, root is the smallest scope, scopes are deleted as they are exited
+struct Evaluator::data {
+    std::unordered_map<std::string, Token> scope;
+    data* child;
 
+    data() : child(nullptr) {}
+
+};
 Token Evaluator::evaluate(std::vector<Token>& tokens)
 {
     if (tokens.empty()) return Tokens::invalid;
-    if (tokens.size() == 1 && tokens[0].getCategory() == TokenCategory::literals) {
-        //TODO variable resolution
+    switch (tokens[tokens.size() - 1].getCategory()) {
+    case TokenCategory::literals:
         return tokens[0];
+//        return evalLit(tokens[0]);
+    case TokenCategory::functions:
+        return evalFunc(tokens);
+    case TokenCategory::keywords:
+        return evalKeys(tokens);
+    case TokenCategory::operators:
+        return evalOp(tokens);
+    case TokenCategory::control_flow:
+        return evalControl(tokens);
     }
-    Token& operation = tokens[tokens.size() - 1];
-    Tokens t = operation.getType();
-    Token res;
-    res.setType(largestType(tokens.begin(), tokens.begin() + tokens.size() - 1));
-    if (res.getType() != Tokens::invalid || tokens.size() == 1) {
-        for (int i = 0; i < tokens.size() - 1; ++i) {
-            if (tokens[i].getType() != res.getType()) {
-                tokens[i].setType(res.getType());
-                tokens[i].setVar(convert(tokens[i].getData(), res.getType()));
-            }
-        }
-        size_t arguments = tokens.size() - 1;
-        switch (operation.getType()) {
-        case Tokens::op_plus:
-            if (arguments != 2) error = "Invalid number of arguments for operator +";
-            else res = add(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_minus:
-            if (arguments != 2) error = "Invalid number of arguments for operator -";
-            else res = sub(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_mul:
-            if (arguments != 2) error = "Invalid number of arguments for operator *";
-            else res = mul(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_div:
-            if (arguments != 2) error = "Invalid number of arguments for operator /";
-            else res = div(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_exp:
-            if (arguments != 2) error = "Invalid number of arguments for operator **";
-            else res = power(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_test:
-            if (arguments != 2) error = "Invalid number of arguments for operator ==";
-            else res = test(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_ne:
-            if (arguments != 2) error = "Invalid number of arguments for operator !=";
-            else res = not_test(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_and:
-            if (arguments != 2) error = "Invalid number of arguments for operator &&";
-            else res = bool_and(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_or:
-            if (arguments != 2) error = "Invalid number of arguments for operator ||";
-            else res = bool_or(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_bit_and:
-            if (arguments != 2) error = "Invalid number of arguments for operator &";
-            else res = bit_and(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_bit_or:
-            if (arguments != 2) error = "Invalid number of arguments for operator |";
-            else res = bit_or(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_xor:
-            if (arguments != 2) error = "Invalid number of arguments for operator ^";
-            else res = bit_xor(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_bool_xor:
-            if (arguments != 2) error = "Invalid number of arguments for operator ^^";
-            else res = bool_xor(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_sh_left:
-            if (arguments != 2) error = "Invalid number of arguments for operator <<";
-            else res = shift_left(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_sh_right:
-            if (arguments != 2) error = "Invalid number of arguments for operator >>";
-            else res = shift_right(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_gr:
-            if (arguments != 2) error = "Invalid number of arguments for operator >";
-            else res = greater(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_gre:
-            if (arguments != 2) error = "Invalid number of arguments for operator >=";
-            else res = greater_eq(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_le:
-            if (arguments != 2) error = "Invalid number of arguments for operator <";
-            else res = less(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::op_lee:
-            if (arguments != 2) error = "Invalid number of arguments for operator <=";
-            else res = less_eq(tokens[0].getData(), tokens[1].getData(), res.getType());
-            break;
-        case Tokens::func_print:
-            for (size_t i = 0; i < arguments; ++i)
-                if (tokens[i].getType() != Tokens::invalid) {
-                    if(tokens[i].getType() == Tokens::lit_str) fputs(tokens[i].literalValue().c_str(), str);
-                    else {
-                        std::string s = tokens[i].literalValue();
-                        fputs(s.c_str(), str);
-                    }
-                }
-            res.setType(Tokens::sx_void);
-            break;
-        case Tokens::func_rand:
-            if (arguments == 2) { //min and max
-                srand(clock());
-                TokenData min = convert(tokens[0].getData(), Tokens::lit_int), max = convert(tokens[1].getData(), Tokens::lit_int);
-                res.setData(rand() % (std::get<long>(max) - std::get<long>(min)) + std::get<long>(min));
-                res.setType(Tokens::lit_int);
-            }
-            else { //0 to 1
-                srand(clock());
-                res.setData(rand() / (double)RAND_MAX);
-                res.setType(Tokens::lit_dbl);
-            }
-            break;
-        case Tokens::func_lil_endian:
-        {
-            long num = 1;
-            if (*(char*)&num == 1) res.setData(1);
-            else res.setData(0);
-            res.setType(Tokens::lit_int);
-            break;
-        }
-        default:
-            error = "Invalid operation";
-            res.setType(Tokens::invalid);
-        }
-    }
-    return res;
+    error = "Unrecognized token category";
+    return Tokens::invalid;
+}
+
+Evaluator::Evaluator(Stream& outputStream, CodePage& code) : str(outputStream), code(&code)
+{
+    vars = new data();
+}
+
+Evaluator::~Evaluator()
+{
+    delete vars;
+}
+
+void Evaluator::newScope()
+{
+    data* newScope = new data();
+    newScope->child = vars;
+    vars = newScope;
+}
+
+void Evaluator::popScope()
+{
+    data* top = vars;
+    vars = vars->child;
+    delete top;
 }
 
 Tokens Evaluator::largestType(std::vector<Token>::iterator argBegin, std::vector<Token>::iterator argEnd)
@@ -238,6 +158,263 @@ TokenData Evaluator::convert(const TokenData& data, Tokens type) const
         }
     }, data);
     return t;
+}
+
+Token Evaluator::evalLit(Token& t)
+{
+	switch (t.getType()) {
+	case Tokens::lit_var:
+    {
+        data* scope = vars;
+        while (scope != nullptr) {
+            if (scope->scope.find(t.getStr()) != scope->scope.end())
+                return scope->scope[t.getStr()];
+            else scope = scope->child;
+        }
+        error = "Variable " + t.getStr() + " is undefined";
+        return Tokens::invalid;
+    }
+	case Tokens::lit_code:
+		return code->eval(t, *this);
+	default:
+		return t;
+	}
+    return Tokens::invalid;
+}
+
+Token Evaluator::evalOp(std::vector<Token>& tokens)
+{
+    Token& operation = tokens[tokens.size() - 1];
+    Tokens t = operation.getType();
+    Token res;
+    if(t != Tokens::op_eq) resolveLiterals(tokens);
+    res.setType(largestType(tokens.begin(), tokens.begin() + tokens.size() - 1));
+    if (res.getType() != Tokens::invalid) {
+        for (int i = 0; i < tokens.size() - 1; ++i) {
+            if (tokens[i].getType() != res.getType()) {
+                tokens[i].setType(res.getType());
+                tokens[i].setVar(convert(tokens[i].getData(), res.getType()));
+            }
+        }
+        size_t arguments = tokens.size() - 1;
+        switch (operation.getType()) {
+        case Tokens::op_plus:
+            if (arguments != 2) error = "Invalid number of arguments for operator +";
+            else res = add(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_minus:
+            if (arguments != 2) error = "Invalid number of arguments for operator -";
+            else res = sub(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_mul:
+            if (arguments != 2) error = "Invalid number of arguments for operator *";
+            else res = mul(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_div:
+            if (arguments != 2) error = "Invalid number of arguments for operator /";
+            else res = div(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_exp:
+            if (arguments != 2) error = "Invalid number of arguments for operator **";
+            else res = power(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_test:
+            if (arguments != 2) error = "Invalid number of arguments for operator ==";
+            else res = test(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_ne:
+            if (arguments != 2) error = "Invalid number of arguments for operator !=";
+            else res = not_test(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_and:
+            if (arguments != 2) error = "Invalid number of arguments for operator &&";
+            else res = bool_and(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_or:
+            if (arguments != 2) error = "Invalid number of arguments for operator ||";
+            else res = bool_or(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_bit_and:
+            if (arguments != 2) error = "Invalid number of arguments for operator &";
+            else res = bit_and(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_bit_or:
+            if (arguments != 2) error = "Invalid number of arguments for operator |";
+            else res = bit_or(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_xor:
+            if (arguments != 2) error = "Invalid number of arguments for operator ^";
+            else res = bit_xor(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_bool_xor:
+            if (arguments != 2) error = "Invalid number of arguments for operator ^^";
+            else res = bool_xor(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_sh_left:
+            if (arguments != 2) error = "Invalid number of arguments for operator <<";
+            else res = shift_left(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_sh_right:
+            if (arguments != 2) error = "Invalid number of arguments for operator >>";
+            else res = shift_right(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_gr:
+            if (arguments != 2) error = "Invalid number of arguments for operator >";
+            else res = greater(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_gre:
+            if (arguments != 2) error = "Invalid number of arguments for operator >=";
+            else res = greater_eq(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_le:
+            if (arguments != 2) error = "Invalid number of arguments for operator <";
+            else res = less(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_lee:
+            if (arguments != 2) error = "Invalid number of arguments for operator <=";
+            else res = less_eq(tokens[0].getData(), tokens[1].getData(), res.getType());
+            break;
+        case Tokens::op_eq:
+            if (arguments != 2) error = "Invalid number of arguments for operator =";
+            else {
+                res = tokens[1];
+                data* scope = vars;
+                while (scope != nullptr) {
+                    if (scope->scope.find(tokens[0].getStr()) != scope->scope.end()) {
+                        scope->scope[tokens[0].getStr()] = tokens[1];
+                        break;
+                    }
+                    else scope = scope->child;
+                }
+            }
+            break;
+        default:
+            error = "Invalid operation";
+            res.setType(Tokens::invalid);
+        }
+    }
+    return res;
+}
+
+Token Evaluator::evalFunc(std::vector<Token>& tokens)
+{
+    Token& operation = tokens[tokens.size() - 1];
+    Tokens t = operation.getType();
+    Token res;
+	size_t arguments = tokens.size() - 1;
+    resolveLiterals(tokens);
+	switch (operation.getType()) {
+	case Tokens::func_print:
+        for (size_t i = 0; i < arguments; ++i) {
+            if (tokens[i].getType() != Tokens::invalid) {
+                if (tokens[i].getType() == Tokens::lit_str) fputs(tokens[i].literalValue().c_str(), str);
+                else {
+                    std::string s = tokens[i].literalValue();
+                    fputs(s.c_str(), str);
+                }
+            }
+        }
+		res.setType(Tokens::sx_void);
+		break;
+	case Tokens::func_rand:
+		if (arguments == 2) { //min and max
+			srand(clock());
+			TokenData min = convert(tokens[0].getData(), Tokens::lit_int), max = convert(tokens[1].getData(), Tokens::lit_int);
+			res.setData(rand() % (std::get<long>(max) - std::get<long>(min)) + std::get<long>(min));
+			res.setType(Tokens::lit_int);
+		}
+		else { //0 to 1
+			srand(clock());
+			res.setData(rand() / (double)RAND_MAX);
+			res.setType(Tokens::lit_dbl);
+		}
+		break;
+	case Tokens::func_lil_endian:
+	{
+		long num = 1;
+		if (*(char*)&num == 1) res.setData((short)1);
+		else res.setData((short)0);
+		res.setType(Tokens::lit_short);
+		break;
+	}
+    default:
+        error = "Invalid operation";
+        res.setType(Tokens::invalid);
+	}
+    return res;
+}
+
+Token Evaluator::evalKeys(std::vector<Token>& tokens)
+{
+    Token& operation = tokens[tokens.size() - 1];
+    Tokens t = operation.getType();
+    Token res;
+	size_t arguments = tokens.size() - 1;
+	switch (operation.getType()) {
+	case Tokens::kw_decl:
+		if (arguments != 1) error = "Invalid number of arguments for operator decl";
+        else {
+            vars->scope[tokens[0].getStr()];
+            res = tokens[0];
+        }
+		break;
+	case Tokens::kw_true:
+		res.setType(Tokens::lit_short);
+		res.setData((short)1);
+		break;
+	case Tokens::kw_false:
+		res.setType(Tokens::lit_short);
+		res.setData((short)0);
+		break;
+    case Tokens::kw_exec:
+    {
+        newScope();
+        for (int i = 1; i < tokens.size() - 1; ++i) {
+            vars->scope["args_" + std::to_string(i - 1)] = tokens[i];
+        }
+        Token aLength = Tokens::lit_int;
+        aLength.setData((long)tokens.size() - 2);
+        vars->scope["args_length"] = aLength;
+        if (tokens[0].getType() == Tokens::lit_var) {
+            res = evalLit(tokens[0]);
+            res = evalLit(res);
+        }
+        else
+            res = evalLit(tokens[0]);
+        popScope();
+        break;
+    }
+    case Tokens::kw_return:
+        if (arguments > 1) error = "Too many arguments for return";
+        else {
+            res.setType(Tokens::kw_return);
+            res.setData("return_value");
+            vars->scope["return_value"] = tokens[0];
+        }
+        break;
+	default:
+		error = "Invalid operation";
+		res.setType(Tokens::invalid);
+	}
+    return res;
+}
+
+Token Evaluator::evalControl(std::vector<Token>& tokens)
+{
+    Token& operation = tokens[tokens.size() - 1];
+    Tokens t = operation.getType();
+    Token res;
+    size_t arguments = tokens.size() - 1;
+    switch (operation.getType()) {
+    case Tokens::ct_if:
+        tokens[0] = evalLit(tokens[0]);
+        if (std::get<long>(convert(tokens[0].getData(), Tokens::lit_int)) != 0)
+            evalLit(tokens[1]);
+        return Tokens::sx_void;
+        break;
+    }
+    return Tokens::invalid;
+
 }
 
 Token Evaluator::add(TokenData&& a, TokenData&& b, Tokens type) const

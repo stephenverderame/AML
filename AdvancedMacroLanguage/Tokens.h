@@ -10,19 +10,19 @@ enum class TokenCategory { //must be <= 16 categories
 enum class Tokens : uint16_t {
 	//standard functions
 	func_print,
-	func_exec,
 	func_rand,
 	func_lil_endian,
 
 	//literals
 	lit_section_start = (uint16_t)TokenCategory::literals << 12, //sections to quickly determine what type of token something is
+	lit_var,
+	lit_code,
 	lit_short,
 	lit_int,
 	lit_long,
 	lit_float,
 	lit_dbl,
-	lit_str,	
-	lit_var,
+	lit_str,
 
 	//operators
 	op_section_start = (uint16_t)TokenCategory::operators << 12,
@@ -32,6 +32,7 @@ enum class Tokens : uint16_t {
 	op_div,
 	op_exp,
 	op_test,
+	op_eq,
 	op_gr,
 	op_gre,
 	op_le,
@@ -58,6 +59,10 @@ enum class Tokens : uint16_t {
 	//keywords
 	kw_section_start = (uint16_t)TokenCategory::keywords << 12,
 	kw_decl,
+	kw_exec,
+	kw_return,
+	kw_true,
+	kw_false,
 
 	//misc
 	sx_section_start = (uint16_t)TokenCategory::syntax << 12,
@@ -73,7 +78,7 @@ enum class Tokens : uint16_t {
 constexpr inline TokenCategory categoryOf(Tokens t) {
 	return (TokenCategory)((uint16_t)t >> 12);
 }
-/**/
+/**@return the precedence of the token. Higher values represent higher precedence (go first)*/
 constexpr inline int precedence(Tokens t) {
 	switch (t) {
 	case Tokens::op_exp:
@@ -89,6 +94,17 @@ constexpr inline int precedence(Tokens t) {
 	case Tokens::op_bit_and:
 	case Tokens::op_bit_or:
 	case Tokens::op_xor:
+	case Tokens::op_sh_left:
+	case Tokens::op_sh_right:
+		return 7;
+	case Tokens::op_or:
+		return 6;
+	case Tokens::op_gr:
+	case Tokens::op_gre:
+	case Tokens::op_test:
+	case Tokens::op_le:
+	case Tokens::op_lee:
+		return 5;
 	default: //functions
 		return 0;
 	}
@@ -100,7 +116,7 @@ private:
 	Tokens type;
 	TokenData data;
 public:
-//	Token(Tokens type, TokenData& data) : type(type), data(data) {}
+	Token(Tokens type, TokenData& data) : type(type), data(data) {}
 	Token(Tokens type) : type(type) {}
 	Token() : type(Tokens::invalid) {}
 	inline Tokens getType() const { return type; }
@@ -113,7 +129,7 @@ public:
 	inline long getInt() const { return std::get<long>(data); }
 	inline short getShort() const { return std::get<short>(data); }
 	inline void setVar(const TokenData&& d) { data = d; }
-	inline TokenData getData() { return data; }
+	inline TokenData getData() const { return data; }
 	inline void setData(const double& t)
 	{
 		data = t;
@@ -149,5 +165,6 @@ public:
 	//Gets string representation of token.
 	//Returns emptry string if token is not a literal
 	std::string literalValue() const;
+	bool operator==(const Token& other) const;
 
 };

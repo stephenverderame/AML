@@ -2,11 +2,12 @@
 #include "CompileTimeHash.h"
 #include <sstream>
 constexpr Tuple<const char*, Tokens> tokenList[] = {
-    {"print", Tokens::func_print}, {"random", Tokens::func_rand}, {"+", Tokens::op_plus}, {"-", Tokens::op_minus}, {"/", Tokens::op_div},
+    {"print", Tokens::func_print}, {"random", Tokens::func_rand}, {"exec", Tokens::kw_exec}, {"return", Tokens::kw_return}, {"+", Tokens::op_plus}, {"-", Tokens::op_minus}, {"/", Tokens::op_div},
     {"**", Tokens::op_exp}, {"*", Tokens::op_mul}, {"<", Tokens::op_le}, {"<=", Tokens::op_lee}, {">", Tokens::op_gr}, {">=", Tokens::op_gre},
     {"==", Tokens::op_test}, {"&&", Tokens::op_and}, {"||", Tokens::op_or}, {"|", Tokens::op_bit_or}, {"&", Tokens::op_bit_and}, {"%", Tokens::op_mod},
     {"^", Tokens::op_xor}, {"!=", Tokens::op_ne}, {"<<", Tokens::op_sh_left}, {">>", Tokens::op_sh_right}, {"^^", Tokens::op_bool_xor},
-    {"isLittleEndian", Tokens::func_lil_endian}
+    {"isLittleEndian", Tokens::func_lil_endian}, {"true", Tokens::kw_true}, {"false", Tokens::kw_false}, {"=", Tokens::op_eq}, {"decl", Tokens::kw_decl},
+    {"if", Tokens::ct_if}
 };
 static constexpr CompileTimeHash<const char*, Tokens> tokenHash(tokenList, sizeof(tokenList) / sizeof(Tuple<const char *, Tokens>), Tokens::invalid);
 

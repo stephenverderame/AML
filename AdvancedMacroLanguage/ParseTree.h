@@ -8,20 +8,12 @@
 class evaluator_exception : public std::exception
 {
 private:
-	const char* msg;
 	std::string m;
 public:
-	evaluator_exception(const char* msg) : msg(msg) {}
-	evaluator_exception(const std::string& s) {
-		m = s;
-		msg = m.c_str();
-	}
-	evaluator_exception(const std::string&& s) {
-		m = s;
-		msg = m.c_str();
-	}
+	evaluator_exception(const std::string& s) : m(s) {}
+	evaluator_exception(const std::string&& s) : m(s) {}
 	const char* what() const override {
-		return msg;
+		return m.c_str();
 	}
 };
 //AST for the language
@@ -36,6 +28,10 @@ private:
 public:
 	ParseTree();
 	~ParseTree();
+	ParseTree(const ParseTree& other) = delete;
+	ParseTree& operator=(const ParseTree& other) = delete;
+	ParseTree(ParseTree&& other);
+	ParseTree& operator=(ParseTree&& other);
 
 	/**
 	* Adds a new token to the tree

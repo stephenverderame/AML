@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CodePage.cpp" />
     <ClCompile Include="Evaluator.cpp" />
     <ClCompile Include="InterpreterMain.cpp" />
     <ClCompile Include="ParseTree.cpp" />
@@ -156,6 +157,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CheapPtr.h" />
+    <ClInclude Include="CodePage.h" />
     <ClInclude Include="CompileTimeHash.h" />
     <ClInclude Include="Evaluator.h" />
     <ClInclude Include="ParseTree.h" />

@@ -30,6 +30,24 @@ ParseTree::~ParseTree()
 	if(root != nullptr) delete root;
 }
 
+ParseTree::ParseTree(ParseTree&& other)
+{
+	subtrees = std::move(other.subtrees);
+	root = other.root;
+	next = other.next;
+	other.root = nullptr;
+}
+
+ParseTree& ParseTree::operator=(ParseTree&& other)
+{
+	subtrees = std::move(other.subtrees);
+	if (root != nullptr) delete root;
+	root = other.root;
+	next = other.next;
+	other.root = nullptr;
+	return *this;
+}
+
 void ParseTree::addToken(const Token& t)
 {
 	switch (t.getCategory()) {
@@ -43,12 +61,10 @@ void ParseTree::addToken(const Token& t)
 	case TokenCategory::syntax:
 		switch (t.getType()) {
 		case Tokens::start_expr:
-		case Tokens::start_block:
 			next->isSubtree = true;
 			subtrees.push(next); //begins new subtree with next as the root
 			break;
 		case Tokens::end_expr:
-		case Tokens::end_block:
 			subtrees.pop();
 			moveUp(next);
 			break;
@@ -93,7 +109,12 @@ void ParseTree::addToken(const Token& t)
 Token ParseTree::evaluate(Evaluator& e)
 {
 	if (!subtrees.empty()) throw evaluator_exception("Missing " + std::to_string(subtrees.size()) + " closing scope token(s). (')' or '}')");
-	if (root == nullptr || root->data.getType() == Tokens::invalid) throw evaluator_exception("Parse tree missing root");
+	if (root == nullptr || root->data.getType() == Tokens::invalid) {
+		if (root != nullptr && root->children[0] != nullptr && root->children[0]->data.getType() != Tokens::invalid)
+			root = root->children[0];
+		else
+			throw evaluator_exception("Parse tree missing root");
+	}
 	root = balanceNode(root);
 	root = balanceNode(root); //twice to check both sides
 	return evaluate(root, e);
@@ -210,11 +231,13 @@ Token ParseTree::evaluate(node* n, Evaluator& e)
 {
 	if (n != nullptr) {
 		std::vector<Token> expression;
+//		if (n->isScope) e.newScope();
 		for (node* nc : n->children)
 			if (nc != nullptr && nc->data.getType() != Tokens::invalid) expression.push_back(evaluate(nc, e));
+//		if (n->isScope) e.popScope();
 		expression.push_back(n->data);
 		Token&& ev = e.evaluate(expression);
-		if (ev.getType() == Tokens::invalid) throw evaluator_exception(e.getError().c_str());
+		if (ev.getType() == Tokens::invalid) throw evaluator_exception(e.getError());
 		return ev;
 	}
 	return Tokens::invalid;

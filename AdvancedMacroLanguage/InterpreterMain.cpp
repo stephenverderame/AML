@@ -3,6 +3,13 @@
 #include "Tokenizer.h"
 #include "ParseTree.h"
 #include "Evaluator.h"
+#include "CodePage.h"
+/**
+* Adds a new tree to the code page. Called when a { is detected in the input stream
+* Returns when a } occurs
+* @return token referring to the parse tree
+*/
+Token innerScope(Tokenizer& tokenizer, CodePage& code);
 int main(int argc, char ** args) {
 	/*Interpreter arguments:
 		in: the file to read from
@@ -25,7 +32,8 @@ int main(int argc, char ** args) {
 	char lastC = 0;
 	char c;
 	int lineCount = 0;
-	Evaluator global(strOut);
+	CodePage cp;
+	Evaluator global(strOut, cp);
 	while ((c = fgetc(strIn)) != EOF) { //the interpreter loop
 		switch (c) {
 		case symbol:
@@ -37,8 +45,7 @@ int main(int argc, char ** args) {
 				ParseTree pt;
 				do {
 					t = tokenizer.getToken();
-					if (t.getType() == Tokens::start_block) ++brackets;
-					else if (t.getType() == Tokens::end_block) --brackets;
+					if (t.getType() == Tokens::start_block) t = innerScope(tokenizer, cp);
 					pt.addToken(t);
 				} while (t.getType() != Tokens::invalid && (t.getType() != Tokens::end_stment || brackets > 0));
 				if (t.getType() == Tokens::invalid) {
@@ -52,7 +59,7 @@ int main(int argc, char ** args) {
 /*						if (res.getType() != Tokens::sx_void)
 							fputs(res.literalValue().c_str(), strOut);*/
 					}
-					catch (evaluator_exception e) {
+					catch (evaluator_exception& e) {
 						fprintf(stderr, "\033[1;31mEvaluator exception: '%s' at line: %d\n\033[1;0m", e.what(), lineCount);
 					}
 //					while ((c = fgetc(strIn)) == '\n' || c == '\r' || c == '\t');
@@ -84,4 +91,22 @@ int main(int argc, char ** args) {
 		}
 	}
 	return 0;
+}
+
+Token innerScope(Tokenizer& tokenizer, CodePage& code)
+{
+	Token t;
+	std::vector<ParseTree> treeList;
+	while (t.getType() != Tokens::end_block) {
+		ParseTree pt;
+		do {
+			t = tokenizer.getToken();
+			if (t.getType() == Tokens::start_block) t = innerScope(tokenizer, code);
+			if (t.getType() == Tokens::end_block) goto dblBreak;
+			pt.addToken(t);
+		} while (t.getType() != Tokens::end_stment && t.getType() != Tokens::invalid && t.getType() != Tokens::end_block);
+		treeList.push_back(std::move(pt));
+	}
+	dblBreak:
+	return code.add(std::move(treeList));
 }

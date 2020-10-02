@@ -3,12 +3,19 @@
 //Stores variables
 #include "Tokens.h"
 #include <vector>
-#include "Stream.h"
+#include <unordered_map>
 class Evaluator
 {
 private:
 	mutable std::string error;
+	struct data;
+	data* vars;
+	//Linked stack of scopes of variables
+	//Invariant: vars is not null
 	FILE* str;
+	//STR is not an owned resource
+	class CodePage* code;
+	//code is not an ownded resource
 public:
 	/**
 	* Evaluates an expression, which is required to be in postfix notation
@@ -19,7 +26,26 @@ public:
 	std::string getError() const { return error; }
 
 	/**@param outputStream   the stream to the output file. Used for functions such as print*/
-	Evaluator(Stream& outputStream) { str = outputStream; }
+	Evaluator(class Stream& outputStream, class CodePage& code);
+	~Evaluator();
+
+	/**Creates a new scope and sets it to the root of the scope stack (lowest)*/
+	void newScope();
+	/**
+	* Deletes the lowest scope from the stack
+	* Requires that pop is called only as many times as newScope. No more, no less
+	*/
+	void popScope();
+
+	/**
+	* Evaluates a single literal token
+	* Requires the token be a literal
+	* For usage of things such as: variable resolution, code execution, etc
+	* @param t a non-function Token passed as a paramater to vector evaluate
+	* @return a token result or invalid on error
+	*/
+	Token evalLit(Token& t);
+
 
 private:
 	/**
@@ -37,6 +63,50 @@ private:
 	* @return a variant with the proper representation of data as type
 	*/
 	TokenData convert(const TokenData& data, Tokens type) const;
+
+
+	/**
+	* Evaluates an operator expression
+	* Requires t be in postfix order
+	* @param t an array of arguments with the last being the operation
+	* @return a token result or invalid on error
+	*/
+	Token evalOp(std::vector<Token>& t);
+
+	/**
+	* Evaluates a function expression
+	* Requires t be in postfix order
+	* @param t an array of arguments with the last being the operation
+	* @return a token result or invalid on error
+	*/
+	Token evalFunc(std::vector<Token>& t);
+
+	/**
+	* Evaluates an keyword expression
+	* Requires t be in postfix order
+	* @param t an array of arguments with the last being the operation
+	* @return a token result or invalid on error
+	*/
+	Token evalKeys(std::vector<Token>& t);
+
+	/**
+	* Resolves all tokens. Replaces variables with their value and executes stored code
+	* Should be called prior to needing their value (a function call, operator etc)
+	* Resulting value is stored in-place
+	* @param t an array of tokens. Non literals will not be changed
+	*/
+	inline void resolveLiterals(std::vector<Token>& t) {
+		for (Token& t : t)
+			t = evalLit(t);
+	}
+
+	/**
+	* Evaluates a control flow expression
+	* @param t an array of arguments with the last being the control flow keyword
+	* @return a token result or invalid
+	*/
+	Token evalControl(std::vector<Token>& t);
+
 
 
 
